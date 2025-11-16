@@ -48,7 +48,8 @@ class EventiaCoreApiE2ETest {
                 .capacidadMaxima(30)
                 .build();
 
-        eventoId = given()
+        // Extraer ID como Integer y convertir a Long
+        Integer eventoIdInt = given()
                 .contentType(ContentType.JSON)
                 .body(request)
                 .when()
@@ -62,6 +63,7 @@ class EventiaCoreApiE2ETest {
                 .extract()
                 .path("id");
 
+        eventoId = eventoIdInt.longValue();
         Assertions.assertNotNull(eventoId);
     }
 
@@ -78,7 +80,8 @@ class EventiaCoreApiE2ETest {
                 .tipoDocumento(TipoDocumento.CEDULA_CIUDADANIA)
                 .build();
 
-        participanteId = given()
+        // Extraer ID como Integer y convertir a Long
+        Integer participanteIdInt = given()
                 .contentType(ContentType.JSON)
                 .body(request)
                 .when()
@@ -91,6 +94,7 @@ class EventiaCoreApiE2ETest {
                 .extract()
                 .path("id");
 
+        participanteId = participanteIdInt.longValue();
         Assertions.assertNotNull(participanteId);
     }
 
@@ -104,7 +108,8 @@ class EventiaCoreApiE2ETest {
                 .notas("Registro de prueba E2E")
                 .build();
 
-        asistenciaId = given()
+        // Extraer ID como Integer y convertir a Long
+        Integer asistenciaIdInt = given()
                 .contentType(ContentType.JSON)
                 .body(request)
                 .when()
@@ -117,6 +122,7 @@ class EventiaCoreApiE2ETest {
                 .extract()
                 .path("id");
 
+        asistenciaId = asistenciaIdInt.longValue();
         Assertions.assertNotNull(asistenciaId);
     }
 
