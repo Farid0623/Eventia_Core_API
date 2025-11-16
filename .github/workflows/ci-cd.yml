@@ -1,0 +1,119 @@
+pname: Eventia Core API - CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  build-and-test:
+    name: Build, Test & Security Analysis
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: eventia_test
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_pass
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 3s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Install dependencies
+        run: ./gradlew clean build -x test
+
+      - name: Run unit tests
+        run: ./gradlew test --tests "*Test"
+        env:
+          SPRING_PROFILES_ACTIVE: test
+
+      - name: Run integration tests
+        run: ./gradlew test --tests "*IntegrationTest"
+        env:
+          SPRING_PROFILES_ACTIVE: test
+          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/eventia_test
+          SPRING_DATASOURCE_USERNAME: test_user
+          SPRING_DATASOURCE_PASSWORD: test_pass
+          SPRING_DATA_REDIS_HOST: localhost
+          SPRING_DATA_REDIS_PORT: 6379
+
+      - name: Run Checkstyle
+        run: ./gradlew checkstyleMain checkstyleTest
+        continue-on-error: false
+
+      - name: Run SpotBugs (Security Analysis)
+        run: ./gradlew spotbugsMain spotbugsTest
+        continue-on-error: false
+
+      - name: Generate JaCoCo Coverage Report
+        run: ./gradlew jacocoTestReport
+
+      - name: Upload Coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./build/reports/jacoco/test/jacocoTestReport.xml
+          fail_ci_if_error: false
+
+      - name: Archive test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: |
+            build/reports/tests/
+            build/reports/jacoco/
+            build/reports/checkstyle/
+            build/reports/spotbugs/
+
+      - name: Print SUCCESS message
+        if: success()
+        run: |
+          echo "================================================"
+          echo "                     OK                         "
+          echo "================================================"
+          echo "✅ All tests passed successfully!"
+          echo "✅ Security analysis completed!"
+          echo "✅ Code quality checks passed!"
+          echo "================================================"
+
+      - name: Print FAILURE message
+        if: failure()
+        run: |
+          echo "================================================"
+          echo "                   FAILED                       "
+          echo "================================================"
+          echo "❌ Pipeline failed. Please check the logs above."
+          echo "================================================"
+          exit 1
+

@@ -1,0 +1,78 @@
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: eventia-postgres
+    environment:
+      POSTGRES_DB: eventia_db
+      POSTGRES_USER: eventia_user
+      POSTGRES_PASSWORD: eventia_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - eventia-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U eventia_user -d eventia_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: eventia-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - eventia-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    command: redis-server --appendonly yes
+
+  redis-insight:
+    image: redis/redisinsight:latest
+    container_name: eventia-redis-insight
+    ports:
+      - "5540:5540"
+    networks:
+      - eventia-network
+    depends_on:
+      - redis
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: eventia-backend
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/eventia_db
+      SPRING_DATASOURCE_USERNAME: eventia_user
+      SPRING_DATASOURCE_PASSWORD: eventia_pass
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      SPRING_PROFILES_ACTIVE: docker
+    ports:
+      - "8080:8080"
+    networks:
+      - eventia-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: on-failure
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  eventia-network:
+    driver: bridge
+
